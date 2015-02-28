@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>LR1</title>
+    <link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.min.css">
+    <link href="bower_components/nvd3/build/nv.d3.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.1.1/katex.min.css">
+    <style>
+        svg {
+            /*display: block;*/
+        }
+
+        svg, #test1, #chart{
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        .config {
+            position: fixed;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>[AI] LR1 - Genetic Algorithms</h1>
+    <div class="row">
+        <div class="col-md-7">
+            <div class="well">
+                Given formula: <span id="formula"></span>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    Given plot
+                </div>
+                <div class="panel-body" id="surfacePlotDiv">
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    Generations
+                </div>
+                <div class="panel-body" id="test1">
+                    <svg style="height:500px"></svg>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    Convergence
+                </div>
+                <div class="panel-body" id="chart">
+                    <svg style="height:500px"></svg>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="panel panel-default config">
+                <div class="panel-body">
+                    <form>
+                        <div class="form-group">
+                            <label>X minimum</label>
+                            <input type="number" class="form-control" name="x-min" value="-20">
+                        </div>
+                        <div class="form-group">
+                            <label>X maximum</label>
+                            <input type="number" class="form-control" name="x-max" value="20">
+                        </div>
+                        <div class="form-group">
+                            <label>Y minimum</label>
+                            <input type="number" class="form-control" name="y-min" value="-20">
+                        </div>
+                        <div class="form-group">
+                            <label>Y max</label>
+                            <input type="number" class="form-control" name="y-max" value="20">
+                        </div>
+                        <div class="form-group">
+                            <label>Population</label>
+                            <input type="number" class="form-control" name="population" value="120">
+                        </div>
+                        <div class="form-group">
+                            <label>Accuracy</label>
+                            <input type="number" class="form-control" name="accuracy" value="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>Crossing Frequency</label>
+                            <input type="number" class="form-control" name="cross" value="0.7">
+                        </div>
+                        <div class="form-group">
+                            <label>Mutation Frequency</label>
+                            <input type="number" class="form-control" name="mutation" value="0.01">
+                        </div>
+                        <button type="button" class="btn btn-default" id="run">Run</button>
+                    </form>
+                </div>
+                <div class="panel-footer">
+                    X: best, Y: best
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="bower_components/jquery/dist/jquery.min.js"></script>
+<script src="bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+<script src="bower_components/d3/d3.min.js" charset="utf-8"></script>
+<script src="bower_components/nvd3/build/nv.d3.min.js"></script>
+<script src="http://www.google.com/jsapi?ext.js"></script>
+<script src="http://javascript-surface-plot.googlecode.com/svn/trunk/javascript/SurfacePlot.js"></script>
+<script src="http://javascript-surface-plot.googlecode.com/svn/trunk/javascript/ColourGradient.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.1.1/katex.min.js"></script>
+<script src="js/ga.js"></script>
+
+<script>
+    katex.render("z(x,y) = x^2+y^2+x y sin(x+y)", $('#formula')[0]);
+
+    $('form').on('click', 'button#run', function () {
+        var ga = new GA();
+        ga.init();
+        ga.run();
+
+        var chart;
+        nv.addGraph(function () {
+            chart = nv.models.scatterChart()
+                    .showDistX(true)
+                    .showDistY(true)
+                    .useVoronoi(true)
+                    .color(d3.scale.category10().range())
+                    .duration(300)
+            ;
+            chart.dispatch.on('renderEnd', function () {
+                console.log('render complete');
+            });
+            chart.xAxis.tickFormat(d3.format('.02f'));
+            chart.yAxis.tickFormat(d3.format('.02f'));
+            chart.tooltipContent(function (key) {
+                return '<h2>' + key + '</h2>';
+            });
+            d3.select('#test1 svg')
+                    .datum(ga.dataPoints)
+                    .call(chart);
+            nv.utils.windowResize(chart.update);
+            chart.dispatch.on('stateChange', function (e) {
+                ('New State:', JSON.stringify(e));
+            });
+            return chart;
+        });
+
+        var line;
+        nv.addGraph(function () {
+            line = nv.models.lineChart()
+                    .options({
+                        transitionDuration: 300,
+                        useInteractiveGuideline: true
+                    })
+            ;
+            // chart sub-models (ie. xAxis, yAxis, etc) when accessed directly, return themselves, not the parent chart, so need to chain separately
+            line.xAxis
+                    .axisLabel("Generation")
+                    .tickFormat(d3.format(',.1f'))
+                    .staggerLabels(true)
+            ;
+            line.yAxis
+                    .axisLabel('Accuracy')
+                    .tickFormat(d3.format(',.01f'))
+            ;
+            d3.select('#chart svg')
+                    .datum(convergencePoints(ga))
+                    .call(line);
+            nv.utils.windowResize(line.update);
+            return line;
+        });
+
+    });
+
+    var convergencePoints = function (ga) {
+        var chart = [];
+        for (var i = 0; i < ga.convergence.length; i++) {
+            chart.push({x: i, y: ga.convergence[i]});
+        }
+
+        return [
+            {
+                values: chart,
+                key: 'Convergence',
+                color: '#7777ff',
+                area: true
+            }
+
+        ];
+    };
+
+    google.load("visualization", "1");
+    google.setOnLoadCallback(setUp);
+
+    function setUp() {
+        var numRows = 20.0;
+        var numCols = 20;
+
+        var tooltipStrings = new Array();
+        var data = new google.visualization.DataTable();
+
+        for (var i = 0; i < numCols; i++) {
+            data.addColumn('number', 'col' + i);
+        }
+
+        data.addRows(numRows);
+        var d = 360 / numRows;
+        var idx = 0;
+
+        for (var i = 0; i < numRows; i++) {
+            for (var j = 0; j < numCols; j++) {
+
+                var value = Math.pow(i * d * Math.PI / 180.0, 2) + Math.pow(j * d * Math.PI / 180.0, 2) + (i * d * Math.PI / 180.0) * (j * d * Math.PI / 180.0) * Math.sin((i * d * Math.PI / 180.0) + j * d * Math.PI / 180.0);
+                data.setValue(i, j, value / 4.0);
+
+                tooltipStrings[idx] = "x:" + i + ", y:" + j + " = " + value;
+                idx++;
+            }
+        }
+
+        surfacePlot = new greg.ross.visualisation.SurfacePlot(document.getElementById("surfacePlotDiv"));
+
+        // Don't fill polygons in IE. It's too slow.
+        var fillPly = true;
+
+        // Define a colour gradient.
+        var colour1 = {
+            red: 0,
+            green: 0,
+            blue: 255
+        };
+        var colour2 = {
+            red: 0,
+            green: 255,
+            blue: 255
+        };
+        var colour3 = {
+            red: 0,
+            green: 255,
+            blue: 0
+        };
+        var colour4 = {
+            red: 255,
+            green: 255,
+            blue: 0
+        };
+        var colour5 = {
+            red: 255,
+            green: 0,
+            blue: 0
+        };
+        var colours = [colour1, colour2, colour3, colour4, colour5];
+
+        // Axis labels.
+        var xAxisHeader = "X";
+        var yAxisHeader = "Y";
+        var zAxisHeader = "Z";
+
+        var options = {
+            xPos: 50,
+            yPos: 0,
+            width: 500,
+            height: 500,
+            colourGradient: colours,
+            fillPolygons: fillPly,
+            tooltips: tooltipStrings,
+            xTitle: xAxisHeader,
+            yTitle: yAxisHeader,
+            zTitle: zAxisHeader,
+            restrictXRotation: false
+        };
+
+        surfacePlot.draw(data, options);
+    }
+
+    setUp();
+
+</script>
+
+</body>
+</html>
