@@ -363,6 +363,7 @@ function GA ()
             this.maximum = 0;
             this.selection();
             if (! isFinite(this.maximum)) {
+                this.maximum = 0;
                 break;
             }
             this.crossing();
