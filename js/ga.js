@@ -198,7 +198,6 @@ function GA ()
      * Selection
      */
     this.selection = function() {
-        console.log('-----------');
 
         // Find all fitness values and their sum
         var fitnessValues = []; var sum = 0; var value = 0; var bestChromosome = '';
@@ -215,7 +214,6 @@ function GA ()
             sum += value;
         }
 
-        console.log('X:', this.getX(bestChromosome), 'Y:', this.getY(bestChromosome));
         this.bestOfChromosomes.push(bestChromosome);
 
         // Find all relative values
@@ -272,7 +270,6 @@ function GA ()
             // Select random range and cross
             var rIndex = Math.floor(Math.random() * firstChromosome.length);
             var lIndex = Math.floor(Math.random() * rIndex);
-            console.log(lIndex + ' -- ' + rIndex);
             var partOfFirst = firstChromosome.substring(lIndex, rIndex);
             this.newPopulation[firstIndex] = this.replaceRange(firstChromosome, lIndex, rIndex, secondChromosome.substring(lIndex, rIndex));
             this.newPopulation[secondIndex] = secondChromosome.replace(secondChromosome.substring(lIndex, rIndex), partOfFirst);
@@ -366,7 +363,6 @@ function GA ()
             this.maximum = 0;
             this.selection();
             if (! isFinite(this.maximum)) {
-                console.log(this.bestOfChromosomes, this.maximum);
                 break;
             }
             this.crossing();
@@ -375,7 +371,6 @@ function GA ()
             this.collection = this.newPopulation;
             this.newPopulation = [];
             generation++;
-            console.log(this.bestOfChromosomes, this.maximum);
         }
 
         this.convergence.push(Math.abs(prevMax - this.maximum));
